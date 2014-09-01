@@ -1,12 +1,11 @@
-module Quine (Term(Var,And,Or,Not),MinTerm(Term))
-    import Prelude
+module Quine (Term(Var,And,Or,Not), MinTerm(Term), quine, print) where
+    import Prelude hiding (print)
     import Data.Bits
-
 -- ========= --
 -- Some ADTs --
 -- ========= --
 
-    data Term   = Var String | And Term Term | Or Term Term | Not Term | True
+    data Term   = Var String | And Term Term | Or Term Term | Not Term | Val Boolean
         deriving (Eq, Show)
     data MinTerm 
                 = Term Int
@@ -24,6 +23,7 @@ module Quine (Term(Var,And,Or,Not),MinTerm(Term))
                              -> Term
 
     quine       :: [MinTerm] -> Term           
+    print       :: Term      -> IO ()
 
 -- ======================== --
 -- Function implementations --
@@ -32,10 +32,20 @@ module Quine (Term(Var,And,Or,Not),MinTerm(Term))
 --- ----------------------------- ---
 --- Collapsing MinTenrms to Terms ---
 --- ----------------------------- --- 
+    (⇔)         :: Int -> Int -> Int
+    (⇔) a b     = complement (xor a b)
 
-    collapse [] = (Not True)
+--    termize     :: Int -> Int -> Term
+--    termize 0   = True
+--    termize 1   = (Var "x1")
+
 --    collapse [x,y]
 --                = 
+    
+    collapseAll [x]
+                = collapse x
+    collapseAll (x:xs)
+                = (Or (collapse x) (collapseAll xs))
 
 --- ----------------------- ---    
 --- Puttin' it all together ---
