@@ -5,7 +5,7 @@ module Quine (Term(Var,And,Or,Not), MinTerm(Term), quine, print) where
 -- Some ADTs --
 -- ========= --
 
-    data Term   = Var String | And Term Term | Or Term Term | Not Term | Val Boolean
+    data Term   = Var String | And Term Term | Or Term Term | Not Term | Val Bool
         deriving (Eq, Show)
     data MinTerm 
                 = Term Int
@@ -53,3 +53,20 @@ module Quine (Term(Var,And,Or,Not), MinTerm(Term), quine, print) where
 
     quine []    = (Not True)
     quine x     = collapseAll (dominance x (minimize x))
+
+--- -------------- ---
+--- Printing terms ---
+--- -------------- ---
+
+    print (Val True)
+                = "¹"
+    print (Val False)
+                = "⁰"
+    print (Var a)
+                = a
+    print (Or a b)
+                = (print a) ++ "∨" ++ (print b)
+    print (And a b)
+                = (print a) ++ "∧" ++ (print b)
+    print (Not a)
+                = "¬" ++ (print a)    
