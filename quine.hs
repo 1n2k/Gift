@@ -9,36 +9,76 @@ module Quine (Term(Var,And,Or,Not), MinTerm(Term), quine, print) where
         deriving (Eq, Show)
     data MinTerm 
                 = Term Int
-        deriving (Eq, Show)        
+        deriving (Eq, Show)
+    data CombinedTerm
+                = Term Int Int Int--Term (Bitmask (Varible=1 | Negation=0)) (Bitmask Ignore=0) (№ of Variables)
+        deriving (Eq, Show)
 
-    minimize    :: [MinTerm] -> [[MinTerm]]
-    rowDominance
-                :: [MinTerm] -> [[MinTerm]] -> [MinTerm]
-    lineDominance
-                :: [MinTerm] -> [[MinTerm]] -> [[MinTerm]]
-    dominance   :: [MinTerm] -> [[MinTerm]] -> [[MinTerm]]
+    combine     :: MinTerm   -> Int            -> CombinedTerm
 
-    collapse    :: [MinTerm] -> Term
-    collapseAll :: [[MinTerm]]
+    minimize    :: [CombinedTerm] -> [CombinedTerm]
+
+--    rowDominance
+--                :: [MinTerm] -> [[MinTerm]] -> [MinTerm]
+--    lineDominance
+--                :: [MinTerm] -> [[MinTerm]] -> [[MinTerm]]
+    dominance   :: [MinTerm] -> [CombinedTerm] -> [CombinedTerm]
+
+    collapse :: [CombinedTerm]
                              -> Term
 
     quine       :: [MinTerm] -> Term           
+
     print       :: Term      -> IO ()
 
 -- ======================== --
 -- Function implementations --
 -- ======================== --
+--- ----------- ---
+--- Basic stuff ---
+--- ----------- ---
+
+    (⇔)         :: Int -> Int -> Int
+    (⇔) a b     = complement (xor a b)
+
+    combine _ 0 = (Term 0 0 0)
+    combine (Term a) l
+                = (Term a ((2^l)-1) l)
+--- -------------- ---
+--- Minimize terms ---
+--- -------------- ---
+    isPowerOf2  :: Int -> Bool
+    isPowerOf2 0
+                = False
+    isPowerOf2 1 
+                = True
+    isPOwerOf2 a
+                = ((mod a 2) != 1) && (isPowerOf2 (a/2))
+
+    minimize [] = []
+    minimize [x]
+                = [[x]]
+    minimize [(Term x),(Term y)]
+                | (isPowerOf2 (complement (x⇔y))) = []
+                | otherwise          = [[(Term x
+
+--- ------------------ ---
+--- Dominance checking ---
+--- ------------------ ---
+
+    dominance [] []
+                = []
 
 --- ----------------------------- ---
 --- Collapsing MinTenrms to Terms ---
 --- ----------------------------- --- 
-    (⇔)         :: Int -> Int -> Int
-    (⇔) a b     = complement (xor a b)
 
---    termize     :: Int -> Int -> Term
---    termize 0   = True
+    termize     :: Int -> Int -> Term
+    termize 0   = True
 --    termize 1   = (Var "x1")
 
+    collapse [Term a]
+                = termize a
 --    collapse [x,y]
 --                = 
     
@@ -69,4 +109,10 @@ module Quine (Term(Var,And,Or,Not), MinTerm(Term), quine, print) where
     print (And a b)
                 = (print a) ++ "∧" ++ (print b)
     print (Not a)
-                = "¬" ++ (print a)    
+                = "¬" ++ (print a)   
+
+-- ======== --
+-- Examples --
+-- ======== --
+
+
