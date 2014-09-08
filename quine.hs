@@ -85,7 +85,8 @@ module Quine (Term(Var,And,Or,Not), MinTerm(MTerm), CombinedTerm(Term), quine, p
     countDiffsO _ (Term "")
                 = 0
     countDiffsO (Term (a:as)) (Term (b:bs))
-                | (a /= b) && (a /= '-') && (b /= '-') = 1 + remainder
+                | (a /= b) && ((a == '-') || (b == '-')) = 2
+                | (a /= b) = 1 + remainder
                 | otherwise = remainder
         where
             remainder
@@ -186,4 +187,5 @@ module Quine (Term(Var,And,Or,Not), MinTerm(MTerm), CombinedTerm(Term), quine, p
 -- Examples --
 -- ======== --
 
-
+    example1    :: [MinTerm]
+    example1    = [MTerm 4, MTerm 8, MTerm 9, MTerm 10, MTerm 11, MTerm 12, MTerm 14, MTerm 15]
