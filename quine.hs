@@ -1,6 +1,7 @@
-module Quine (Term(Var,And,Or,Not), MinTerm(Term), quine, print) where
+module Quine (Term(Var,And,Or,Not), MinTerm(MTerm), CombinedTerm(Term), quine, print) where
     import Prelude hiding (print)
     import Data.Bits
+    import Data.List
 -- ========= --
 -- Some ADTs --
 -- ========= --
@@ -8,13 +9,13 @@ module Quine (Term(Var,And,Or,Not), MinTerm(Term), quine, print) where
     data Term   = Var String | And Term Term | Or Term Term | Not Term | Val Bool
         deriving (Eq, Show)
     data MinTerm 
-                = Term Int
+                = MTerm Int
         deriving (Eq, Show)
     data CombinedTerm
-                = Term Int Int Int--Term (Bitmask (Varible=1 | Negation=0)) (Bitmask Ignore=0) (№ of Variables)
+                = Term String 
         deriving (Eq, Show)
 
-    combine     :: MinTerm   -> Int            -> CombinedTerm
+    combine     :: Int            -> MinTerm   -> CombinedTerm
 
     minimize    :: [CombinedTerm] -> [CombinedTerm]
 
@@ -24,12 +25,11 @@ module Quine (Term(Var,And,Or,Not), MinTerm(Term), quine, print) where
 --                :: [MinTerm] -> [[MinTerm]] -> [[MinTerm]]
     dominance   :: [MinTerm] -> [CombinedTerm] -> [CombinedTerm]
 
-    collapse :: [CombinedTerm]
-                             -> Term
+    collapse :: CombinedTerm -> Term
 
     quine       :: [MinTerm] -> Term           
 
-    print       :: Term      -> IO ()
+    print       :: Term      -> String
 
 -- ======================== --
 -- Function implementations --
@@ -41,26 +41,92 @@ module Quine (Term(Var,And,Or,Not), MinTerm(Term), quine, print) where
     (⇔)         :: Int -> Int -> Int
     (⇔) a b     = complement (xor a b)
 
-    combine _ 0 = (Term 0 0 0)
-    combine (Term a) l
-                = (Term a ((2^l)-1) l)
+    construct   :: Int -> Int -> String
+    construct 0 _
+                = ""
+    construct length value
+                | (mod value 2) == 0 = (next ++ "0")
+                | otherwise = (next ++ "1")
+        where
+            next
+                = (construct (length-1) (div value 2))
+
+    combine 0 _ = (Term "")
+    combine l (MTerm a)
+                = (Term (construct l a))
 --- -------------- ---
 --- Minimize terms ---
 --- -------------- ---
-    isPowerOf2  :: Int -> Bool
-    isPowerOf2 0
-                = False
-    isPowerOf2 1 
-                = True
-    isPOwerOf2 a
-                = ((mod a 2) != 1) && (isPowerOf2 (a/2))
 
-    minimize [] = []
-    minimize [x]
-                = [[x]]
-    minimize [(Term x),(Term y)]
-                | (isPowerOf2 (complement (x⇔y))) = []
-                | otherwise          = [[(Term x
+    countChar   :: String -> Char -> Int
+    countChar "" _
+                = 0
+    countChar (s:str) c
+                | s == c = 1 + remainder
+                | otherwise = remainder
+        where
+            remainder
+                = countChar str c
+
+    termCmp     :: CombinedTerm -> CombinedTerm -> Bool
+    termCmp (Term a) (Term b) 
+                = (countChar a '1') < (countChar b '1')
+
+    termSort    :: [CombinedTerm] -> [CombinedTerm]
+    termSort [] = []
+    termSort (x:xs)
+                = termSort [a | a <- xs, (termCmp a x)]
+                ++ [x]
+                ++ termSort [a | a <- xs, not (termCmp a x)]
+
+    countDiffsO  :: CombinedTerm -> CombinedTerm -> Int
+    countDiffsO (Term "") _
+                = 0
+    countDiffsO _ (Term "")
+                = 0
+    countDiffsO (Term (a:as)) (Term (b:bs))
+                | (a /= b) && (a /= '-') && (b /= '-') = 1 + remainder
+                | otherwise = remainder
+        where
+            remainder
+                = countDiffsO (Term as) (Term bs)
+
+    mergeO      :: CombinedTerm -> CombinedTerm -> CombinedTerm
+    mergeO (Term "") _
+                = (Term "")
+    mergeO _ (Term "")
+                = (Term "")
+    mergeO (Term (a:as)) (Term (b:bs))
+                | a == b = (Term (a:rem))
+                | otherwise = (Term ('-':rem))
+        where
+            (Term rem)
+                = mergeO (Term as) (Term bs)
+
+    minimizeHelp
+                :: [CombinedTerm] -> [CombinedTerm]
+    minimizeHelp [] 
+                = []
+    minimizeHelp ((x@(Term ξ)):xs)
+                | foldl (||) False (map ((==) 1) (map (countDiffsO x) xs)) = [(mergeO x a) | a <- xs, (countDiffsO x a) == 1 ] ++ remaining
+                | otherwise = [x] ++ remaining
+        where
+            remaining
+                = minimizeHelp xs
+
+    minimizeHelp2
+                :: [CombinedTerm] -> [CombinedTerm]
+    minimizeHelp2 a
+                = intersect (nub (minimizeHelp α)) (nub (minimizeHelp α'))
+        where
+            α   = termSort a
+            α'  = reverse α
+
+    minimize a           
+                | a == a' = a
+                | otherwise = minimize a'
+        where
+            a'  = minimizeHelp2 a
 
 --- ------------------ ---
 --- Dominance checking ---
@@ -73,12 +139,8 @@ module Quine (Term(Var,And,Or,Not), MinTerm(Term), quine, print) where
 --- Collapsing MinTenrms to Terms ---
 --- ----------------------------- --- 
 
-    termize     :: Int -> Int -> Term
-    termize 0   = True
---    termize 1   = (Var "x1")
-
-    collapse [Term a]
-                = termize a
+    collapse (Term i)
+                = (Val True)
 --    collapse [x,y]
 --                = 
     
@@ -91,8 +153,17 @@ module Quine (Term(Var,And,Or,Not), MinTerm(Term), quine, print) where
 --- Puttin' it all together ---
 --- ----------------------- ---
 
-    quine []    = (Not True)
-    quine x     = collapseAll (dominance x (minimize x))
+    -- Calculate the number of used variables
+    getMax      :: [MinTerm] -> Int
+    getMax []   = 1
+    getMax ((MTerm a):xs)
+                = max (ceiling (log2 (fromIntegral a))) (getMax xs) 
+        where
+            log2 a
+                = ((log a) / (log 2))
+
+    quine []    = (Val False)
+    quine x     = collapseAll (dominance x (minimize (map (combine (getMax x)) x)))
 
 --- -------------- ---
 --- Printing terms ---
