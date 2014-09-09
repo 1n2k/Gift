@@ -7,7 +7,7 @@ module Quine (Term(Var,And,Or,Not), MinTerm(MTerm), CombinedTerm(Term), quine, p
 -- ========= --
 
     data Term   = Var String | And Term Term | Or Term Term | Not Term | Val Bool
-        deriving (Eq)
+        deriving (Eq,Show)
     data MinTerm 
                 = MTerm Int
         deriving (Eq, Show)
@@ -19,10 +19,10 @@ module Quine (Term(Var,And,Or,Not), MinTerm(MTerm), CombinedTerm(Term), quine, p
 
     minimize    :: [CombinedTerm] -> [CombinedTerm]
 
---    rowDominance
---                :: [MinTerm] -> [[MinTerm]] -> [MinTerm]
---    lineDominance
---                :: [MinTerm] -> [[MinTerm]] -> [[MinTerm]]
+    rowDominance
+                :: [MinTerm] -> [CombinedTerm] -> [MinTerm]
+    lineDominance
+                :: [MinTerm] -> [CombinedTerm] -> [CombinedTerm]
     dominance   :: [MinTerm] -> [CombinedTerm] -> [CombinedTerm]
 
     collapse    :: Int       -> CombinedTerm   -> Term
@@ -31,8 +31,8 @@ module Quine (Term(Var,And,Or,Not), MinTerm(MTerm), CombinedTerm(Term), quine, p
 
     quine       :: [MinTerm] -> Term           
 
-    print       :: Term      -> String
-
+    put         :: Term      -> IO()
+    
 -- ======================== --
 -- Function implementations --
 -- ======================== --
@@ -139,8 +139,65 @@ module Quine (Term(Var,And,Or,Not), MinTerm(MTerm), CombinedTerm(Term), quine, p
 --- Dominance checking ---
 --- ------------------ ---
 
+    subset      :: Eq a => [a] -> [a] -> Bool
+    subset [] _ = True
+    subset _ [] = False
+    subset (a:as) b
+                | elem a b = subset as b
+                | otherwise = False
+
+    subsetR     :: Eq a => [a] -> [a] -> Bool
+    subsetR a b = subset b a
+
+    cTermEq     :: CombinedTerm -> CombinedTerm -> Bool
+    cTermEq (Term "") (Term "")
+                = True
+    cTermEq (Term "") _
+                = False
+    cTermEq _ (Term "")
+                = False
+    cTermEq (Term (a:as)) (Term (b:bs))
+                = ((a == '-') || (b == '-') || (a == b))
+                && (cTermEq (Term as) (Term bs))
+
+    rowTable    :: [MinTerm] -> [CombinedTerm] -> [(MinTerm, [CombinedTerm])]
+    rowTable [] _
+                = []
+    rowTable (m:ms) c
+                = (m,[χ | χ@(Term ξ) <- c, cTermEq χ (combine (length ξ) m)]) : (rowTable ms c)
+
+    rowDominance [] _
+                = []
+    rowDominance _ []
+                = []
+    rowDominance a b
+                = [ m | (m, ps) <- rab, (foldl (||) False (map (subsetR ps) (map snd rab))) == False ] 
+        where
+            rab = rowTable a b
+
+    lineTable   :: [MinTerm] -> [CombinedTerm] -> [(CombinedTerm, [MinTerm])]
+    lineTable [] _
+                = []
+    lineTable m (c@(Term χ):cs)
+                = (c, [μ | μ <- m, cTermEq c (combine (length χ) μ)]) : (lineTable m cs)
+    
+    lineDominance [] _
+                = []
+    lineDominance _ []
+                = []
+    lineDominance a b
+                = [ m | (m, ps) <- lab, (foldl (||) False (map (subset ps) (map snd lab))) == False ]
+        where
+            lab = lineTable a b
+
     dominance [] []
                 = []
+    dominance a b
+                | lab == b = lab
+                | otherwise = dominance rab lab
+        where
+            rab = rowDominance a b
+            lab = lineDominance rab b    
 
 --- ----------------------------- ---
 --- Collapsing MinTenrms to Terms ---
@@ -209,6 +266,7 @@ module Quine (Term(Var,And,Or,Not), MinTerm(MTerm), CombinedTerm(Term), quine, p
 --- Printing terms ---
 --- -------------- ---
 
+    print       :: Term -> String
     print (Val True)
                 = "¹"
     print (Val False)
@@ -222,7 +280,6 @@ module Quine (Term(Var,And,Or,Not), MinTerm(MTerm), CombinedTerm(Term), quine, p
     print (Not a)
                 = "¬" ++ (print a)   
 
-    put         :: Term -> IO()
     put a       = putStrLn ("(" ++ (print a) ++ ")")
 
 -- ======== --
