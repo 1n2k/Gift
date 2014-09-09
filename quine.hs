@@ -143,7 +143,8 @@ module Quine (Term(Var,And,Or,Not), MinTerm(MTerm), CombinedTerm(Term), quine, p
     subset [] _ = True
     subset _ [] = False
     subset (a:as) b
-                | elem a b = subset as b
+                | (length b) <= (length (a:as)) = False
+                | elem a b =  subset as b
                 | otherwise = False
 
     subsetR     :: Eq a => [a] -> [a] -> Bool
@@ -176,7 +177,7 @@ module Quine (Term(Var,And,Or,Not), MinTerm(MTerm), CombinedTerm(Term), quine, p
             rab = rowTable a b
 
     lineTable   :: [MinTerm] -> [CombinedTerm] -> [(CombinedTerm, [MinTerm])]
-    lineTable [] _
+    lineTable _ []
                 = []
     lineTable m (c@(Term χ):cs)
                 = (c, [μ | μ <- m, cTermEq c (combine (length χ) μ)]) : (lineTable m cs)
@@ -237,6 +238,8 @@ module Quine (Term(Var,And,Or,Not), MinTerm(MTerm), CombinedTerm(Term), quine, p
             β   = simplify b
     simplify a  = a
 
+    collapseAll []
+                = Val True
     collapseAll [x]
                 = simplify (collapse 1 x)
     collapseAll (x:xs)
@@ -291,5 +294,16 @@ module Quine (Term(Var,And,Or,Not), MinTerm(MTerm), CombinedTerm(Term), quine, p
                 = map (combine (getMax x)) x
 
     example1    :: [MinTerm]
-    example1    = [MTerm 4, MTerm 8, MTerm 9, MTerm 10, MTerm 11, MTerm 12, MTerm 14, MTerm 15]
+    example1    = [ 
+                    MTerm 0, 
+                    MTerm 1, 
+                    MTerm 4, 
+                    MTerm 5, 
+                    MTerm 6, 
+                    MTerm 7,
+                    MTerm 8,
+                    MTerm 9,
+                    MTerm 11,
+                    MTerm 15
+                  ]
 
