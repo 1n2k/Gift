@@ -40,9 +40,6 @@ module Quine (Term(Var,And,Or,Not), MinTerm(MTerm), CombinedTerm(Term), quine, p
 --- Basic stuff ---
 --- ----------- ---
 
-    (⇔)         :: Int -> Int -> Int
-    (⇔) a b     = complement (xor a b)
-
     limit       :: (Eq a) => (a -> a) -> a -> a
     limit f α
                 | α == α' = α
@@ -139,6 +136,7 @@ module Quine (Term(Var,And,Or,Not), MinTerm(MTerm), CombinedTerm(Term), quine, p
 --- Dominance checking ---
 --- ------------------ ---
 
+    -- Inefficient proper subset checking
     subset      :: Eq a => [a] -> [a] -> Bool
     subset [] _ = True
     subset _ [] = False
@@ -150,6 +148,7 @@ module Quine (Term(Var,And,Or,Not), MinTerm(MTerm), CombinedTerm(Term), quine, p
     subsetR     :: Eq a => [a] -> [a] -> Bool
     subsetR a b = subset b a
 
+    -- CombinedTerm equality test
     cTermEq     :: CombinedTerm -> CombinedTerm -> Bool
     cTermEq (Term "") (Term "")
                 = True
@@ -161,12 +160,15 @@ module Quine (Term(Var,And,Or,Not), MinTerm(MTerm), CombinedTerm(Term), quine, p
                 = ((a == '-') || (b == '-') || (a == b))
                 && (cTermEq (Term as) (Term bs))
 
+    -- Generate for each MinTerm, through which CombinedTerm it is covered
     rowTable    :: [MinTerm] -> [CombinedTerm] -> [(MinTerm, [CombinedTerm])]
     rowTable [] _
                 = []
     rowTable (m:ms) c
                 = (m,[χ | χ@(Term ξ) <- c, cTermEq χ (combine (length ξ) m)]) : (rowTable ms c)
-
+    
+    -- Remove dominated MinTerms via subset-checking 
+    -- and list comprehension (aka. black magic)
     rowDominance [] _
                 = []
     rowDominance _ []
@@ -176,12 +178,15 @@ module Quine (Term(Var,And,Or,Not), MinTerm(MTerm), CombinedTerm(Term), quine, p
         where
             rab = rowTable a b
 
+    -- Generate for each CombinedTerm, which MinTerm it covers
     lineTable   :: [MinTerm] -> [CombinedTerm] -> [(CombinedTerm, [MinTerm])]
     lineTable _ []
                 = []
     lineTable m (c@(Term χ):cs)
                 = (c, [μ | μ <- m, cTermEq c (combine (length χ) μ)]) : (lineTable m cs)
-    
+
+    -- Remove dominated CombinedTerms via subset-checking 
+    -- and list comprehension (aka. black magic)
     lineDominance [] _
                 = []
     lineDominance _ []
@@ -191,6 +196,7 @@ module Quine (Term(Var,And,Or,Not), MinTerm(MTerm), CombinedTerm(Term), quine, p
         where
             lab = lineTable a b
 
+    -- Dominance checking via limiting row- and line dominance
     dominance [] []
                 = []
     dominance a b
@@ -201,9 +207,10 @@ module Quine (Term(Var,And,Or,Not), MinTerm(MTerm), CombinedTerm(Term), quine, p
             lab = lineDominance rab b    
 
 --- ----------------------------- ---
---- Collapsing MinTenrms to Terms ---
+--- Collapsing CombinedTerms to Terms ---
 --- ----------------------------- --- 
 
+    -- Collapse a single CombinedTerm into an ordinary Term
     collapse _ (Term "")
                 = (Val True)
     collapse i (Term [a])
@@ -221,6 +228,7 @@ module Quine (Term(Var,And,Or,Not), MinTerm(MTerm), CombinedTerm(Term), quine, p
             remainder
                 = collapse (i+1) (Term as)
     
+    -- Perform some trivial simplifications
     simplify    :: Term -> Term
     simplify (And (Val True) (Val True))
                 = (Val True)
@@ -237,7 +245,8 @@ module Quine (Term(Var,And,Or,Not), MinTerm(MTerm), CombinedTerm(Term), quine, p
             α   = simplify a
             β   = simplify b
     simplify a  = a
-
+    
+    -- Collapse a list of CombinedTerms to an ordinary Term
     collapseAll []
                 = Val True
     collapseAll [x]
@@ -262,6 +271,9 @@ module Quine (Term(Var,And,Or,Not), MinTerm(MTerm), CombinedTerm(Term), quine, p
             log2 a
                 = ((log a) / (log 2))
 
+    -- Quine-McCluskey's algorithm: 
+    -- • minimize MinTerms to Primterms, 
+    -- • delete unnessessary Primterms
     quine []    = (Val False)
     quine x     = collapseAll (dominance x (minimize (map (combine (getMax x)) x)))
 
@@ -269,6 +281,7 @@ module Quine (Term(Var,And,Or,Not), MinTerm(MTerm), CombinedTerm(Term), quine, p
 --- Printing terms ---
 --- -------------- ---
 
+    -- Calculate a nice-looking String
     print       :: Term -> String
     print (Val True)
                 = "¹"
@@ -283,6 +296,7 @@ module Quine (Term(Var,And,Or,Not), MinTerm(MTerm), CombinedTerm(Term), quine, p
     print (Not a)
                 = "¬" ++ (print a)   
 
+    -- Output the nice-looking String
     put a       = putStrLn ("(" ++ (print a) ++ ")")
 
 -- ======== --
@@ -293,6 +307,7 @@ module Quine (Term(Var,And,Or,Not), MinTerm(MTerm), CombinedTerm(Term), quine, p
     combineAll x 
                 = map (combine (getMax x)) x
 
+    -- Example taken from the German Wikipedia
     example1    :: [MinTerm]
     example1    = [ 
                     MTerm 0, 
