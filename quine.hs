@@ -15,9 +15,12 @@ module Quine (Term(Var,And,Or,Not), MinTerm(MTerm), CombinedTerm(Term), quine, p
                 = Term String 
         deriving (Eq, Show)
 
-    combine     :: Int            -> MinTerm   -> CombinedTerm
+    (↦)         :: (a -> b) -> [a] -> [b]      
 
-    minimize    :: [CombinedTerm] -> [CombinedTerm]
+    combine     :: Int       -> MinTerm        -> CombinedTerm
+
+    minimize    :: [CombinedTerm] 
+                             -> [CombinedTerm]
 
     rowDominance
                 :: [MinTerm] -> [CombinedTerm] -> [MinTerm]
@@ -39,6 +42,9 @@ module Quine (Term(Var,And,Or,Not), MinTerm(MTerm), CombinedTerm(Term), quine, p
 --- ----------- ---
 --- Basic stuff ---
 --- ----------- ---
+
+    -- Map operator
+    (↦) f a     = map f a
 
     limit       :: (Eq a) => (a -> a) -> a -> a
     limit f α
@@ -116,7 +122,7 @@ module Quine (Term(Var,And,Or,Not), MinTerm(MTerm), CombinedTerm(Term), quine, p
     minimizeHelp [] 
                 = []
     minimizeHelp ((x@(Term ξ)):xs)
-                | foldl (||) False (map ((==) 1) (map (countDiffsO x) xs)) = [(mergeO x a) | a <- xs, (countDiffsO x a) == 1 ] ++ remaining
+                | foldl (||) False (((==) 1)↦((countDiffsO x)↦xs)) = [(mergeO x a) | a <- xs, (countDiffsO x a) == 1 ] ++ remaining
                 | otherwise = [x] ++ remaining
         where
             remaining
@@ -174,7 +180,7 @@ module Quine (Term(Var,And,Or,Not), MinTerm(MTerm), CombinedTerm(Term), quine, p
     rowDominance _ []
                 = []
     rowDominance a b
-                = [ m | (m, ps) <- rab, (foldl (||) False (map (subsetR ps) (map snd rab))) == False ] 
+                = [ m | (m, ps) <- rab, (foldl (||) False ((subsetR ps)↦(snd↦rab))) == False ] 
         where
             rab = rowTable a b
 
@@ -192,7 +198,7 @@ module Quine (Term(Var,And,Or,Not), MinTerm(MTerm), CombinedTerm(Term), quine, p
     lineDominance _ []
                 = []
     lineDominance a b
-                = [ m | (m, ps) <- lab, (foldl (||) False (map (subset ps) (map snd lab))) == False ]
+                = [ m | (m, ps) <- lab, (foldl (||) False ((subset ps)↦(snd↦lab))) == False ]
         where
             lab = lineTable a b
 
@@ -250,12 +256,12 @@ module Quine (Term(Var,And,Or,Not), MinTerm(MTerm), CombinedTerm(Term), quine, p
     collapseAll []
                 = Val True
     collapseAll [x]
-                = simplify (collapse 1 x)
+                = simplify (collapse 0 x)
     collapseAll (x:xs)
                 | ξ == (Val True) || χ == (Val True) = (Val True)
                 | otherwise = (Or ξ χ)
         where 
-            ξ   = simplify (collapse 1 x)
+            ξ   = simplify (collapse 0 x)
             χ   = collapseAll xs
 
 --- ----------------------- ---    
@@ -275,7 +281,7 @@ module Quine (Term(Var,And,Or,Not), MinTerm(MTerm), CombinedTerm(Term), quine, p
     -- • minimize MinTerms to Primterms, 
     -- • delete unnessessary Primterms
     quine []    = (Val False)
-    quine x     = collapseAll (dominance x (minimize (map (combine (getMax x)) x)))
+    quine x     = collapseAll (dominance x (minimize ((combine (getMax x))↦x)))
 
 --- -------------- ---
 --- Printing terms ---
@@ -305,7 +311,7 @@ module Quine (Term(Var,And,Or,Not), MinTerm(MTerm), CombinedTerm(Term), quine, p
 
     combineAll  :: [MinTerm] -> [CombinedTerm]
     combineAll x 
-                = map (combine (getMax x)) x
+                = (combine (getMax x))↦x
 
     -- Example taken from the German Wikipedia
     example1    :: [MinTerm]
@@ -322,3 +328,13 @@ module Quine (Term(Var,And,Or,Not), MinTerm(MTerm), CombinedTerm(Term), quine, p
                     MTerm 15
                   ]
 
+    example2    :: [MinTerm]
+    example2    = [
+                    MTerm 0,
+                    MTerm 1,
+                    MTerm 2,
+                    MTerm 3
+                  ]
+
+    exampleN    :: Int -> [MinTerm]
+    exampleN n  = [MTerm i | i <- [0..n], (n .&. i) == i]
